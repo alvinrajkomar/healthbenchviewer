@@ -119,7 +119,12 @@ def get_points_badge_color(points: int) -> str:
         # Neutral gray
         return '#a1a1aa'  # zinc-400
 
-def display_rubric_criteria(example: Dict[str, Any]):
+def axis_display_name(axis: str) -> str:
+    if not axis:
+        return 'Unspecified'
+    return axis.replace('_', ' ').capitalize()
+
+def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show_details: bool = True):
     """Display and sort rubric criteria from the 'rubrics' field."""
     st.subheader("Rubric Criteria")
     
@@ -140,13 +145,6 @@ def display_rubric_criteria(example: Dict[str, Any]):
         for r in rubrics
     ])
     
-    # Add sorting options
-    sort_by = st.selectbox(
-        "Sort criteria by:",
-        ["points", "axis", "criterion"],
-        index=0
-    )
-    
     def colored_header(criterion, points):
         badge_color = get_points_badge_color(points)
         html = f'''
@@ -164,18 +162,106 @@ def display_rubric_criteria(example: Dict[str, Any]):
             group_sorted = group.sort_values(by="points", ascending=False)
             for _, row in group_sorted.iterrows():
                 colored_header(row['criterion'], row['points'])
-                with st.expander("Details"):
-                    st.markdown(f"**Axis:** {row['axis']}")
-                    st.markdown(f"**Tags:** {', '.join(row['tags'])}")
+                if show_details:
+                    with st.expander("Details"):
+                        st.markdown(f"**Axis:** {row['axis']}")
+                        st.markdown(f"**Tags:** {', '.join(row['tags'])}")
     else:
         # Sort the DataFrame
         df = df.sort_values(by=sort_by, ascending=False)
         # Display each criterion
         for _, row in df.iterrows():
             colored_header(row['criterion'], row['points'])
-            with st.expander("Details"):
-                st.markdown(f"**Axis:** {row['axis']}")
-                st.markdown(f"**Tags:** {', '.join(row['tags'])}")
+            if show_details:
+                with st.expander("Details"):
+                    st.markdown(f"**Axis:** {row['axis']}")
+                    st.markdown(f"**Tags:** {', '.join(row['tags'])}")
+
+def calculate_points_metrics(rubrics: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Calculate points metrics from rubrics."""
+    if not rubrics:
+        return {
+            'total_actual': 0,
+            'max_possible_score': 0,
+            'max_possible_penalty': 0,
+            'by_axis': {}
+        }
+    
+    # Convert to DataFrame for easier analysis
+    df = pd.DataFrame([
+        {
+            'criterion': r.get('criterion', ''),
+            'points': r.get('points', 0),
+            'axis': extract_axis(r.get('tags', [])),
+        }
+        for r in rubrics
+    ])
+    
+    total_actual = df['points'].sum()
+    max_possible_score = df[df['points'] > 0]['points'].sum()
+    max_possible_penalty = df[df['points'] < 0]['points'].abs().sum()
+    
+    # Calculate by axis
+    by_axis = {}
+    for axis, group in df.groupby('axis'):
+        axis_score = group[group['points'] > 0]['points'].sum()
+        axis_penalty = group[group['points'] < 0]['points'].abs().sum()
+        by_axis[axis] = {
+            'max_score': axis_score,
+            'max_penalty': axis_penalty
+        }
+    
+    return {
+        'total_actual': total_actual,
+        'max_possible_score': max_possible_score,
+        'max_possible_penalty': max_possible_penalty,
+        'by_axis': by_axis
+    }
+
+def display_points_metrics(metrics: Dict[str, Any]):
+    """Display points metrics in a visually appealing way."""
+    st.subheader("Points Analysis")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(
+            "Max Possible Score",
+            f"{metrics['max_possible_score']}"
+        )
+    with col2:
+        st.metric(
+            "Max Possible Penalty",
+            f"{metrics['max_possible_penalty']}"
+        )
+    
+    # Create a DataFrame for the axis breakdown
+    axis_data = []
+    for axis, data in metrics['by_axis'].items():
+        axis_data.append({
+            'Category': axis_display_name(axis),
+            'Max Score': data['max_score'],
+            'Max Penalty': data['max_penalty']
+        })
+    df = pd.DataFrame(axis_data)
+    
+    st.markdown("### Points by Category")
+    if not df.empty:
+        # Use lighter color gradients and add padding/border radius for a modern look
+        styler = (
+            df.style
+            .background_gradient(subset=["Max Score"], cmap="BuGn", vmin=0, vmax=max(df["Max Score"].max(), 1), gmap=None, axis=None)
+            .background_gradient(subset=["Max Penalty"], cmap="OrRd", vmin=0, vmax=max(df["Max Penalty"].max(), 1), gmap=None, axis=None)
+            .set_properties(**{
+                'border-radius': '10px',
+                'padding': '8px',
+                'border': '1px solid #222',
+                'font-size': '1.1em',
+            })
+            .format(precision=0)
+        )
+        st.write(styler)
+    else:
+        st.dataframe(df, use_container_width=True)
 
 def main():
     st.set_page_config(page_title="HealthBench Data Viewer", layout="wide")
@@ -207,6 +293,25 @@ def main():
         help="Toggle the visibility of the criteria score distribution chart"
     )
     
+    show_points_analysis = st.sidebar.toggle(
+        "Show Points Analysis",
+        value=True,
+        help="Toggle the visibility of the points analysis section"
+    )
+    
+    show_details = st.sidebar.toggle(
+        "Show Details",
+        value=True,
+        help="Toggle the visibility of the details expander for each criterion"
+    )
+    
+    sort_by = st.sidebar.selectbox(
+        "Sort criteria by:",
+        ["axis", "points", "criterion"],
+        index=0,
+        help="Choose how to sort the rubric criteria"
+    )
+    
     # Get the selected example
     example_index = int(selected_example.split()[-1]) - 1
     example = examples[example_index]
@@ -232,13 +337,14 @@ def main():
                 }
                 for r in rubrics
             ])
+            df['axis_display'] = df['axis'].apply(axis_display_name)
             fig = px.bar(
                 df,
                 x='criterion',
                 y='points',
-                color='axis',
+                color='axis_display',  # Use the display name
                 title="Points by Criterion",
-                labels={'criterion': 'Criterion', 'points': 'Points'},
+                labels={'criterion': 'Criterion', 'points': 'Points', 'axis_display': 'Category'},
                 height=400
             )
             fig.update_layout(
@@ -256,8 +362,14 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
         st.markdown("---")
     
+    # Points Analysis (full width) - only if enabled
+    if show_points_analysis:
+        metrics = calculate_points_metrics(example.get('rubrics', []))
+        display_points_metrics(metrics)
+        st.markdown("---")
+    
     # Rubric criteria (full width)
-    display_rubric_criteria(example)
+    display_rubric_criteria(example, sort_by, show_details)
 
 if __name__ == "__main__":
     main() 
