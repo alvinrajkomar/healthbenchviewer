@@ -184,13 +184,27 @@ def main():
     # Load all examples
     examples = get_all_examples()
     
-    # Sidebar for example selection
+    if not examples:
+        st.error("No examples found in the processed_data directory. Please run the data processing script first:")
+        st.code("python scripts/download_and_process.py")
+        return
+    
+    # Sidebar for example selection and display options
     st.sidebar.title("Navigation")
     example_names = [f"Example {i+1}" for i in range(len(examples))]
     selected_example = st.sidebar.selectbox(
         "Select an example:",
         example_names,
         index=0
+    )
+    
+    # Display options
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Display Options")
+    show_score_distribution = st.sidebar.toggle(
+        "Show Score Distribution",
+        value=True,
+        help="Toggle the visibility of the criteria score distribution chart"
     )
     
     # Get the selected example
@@ -205,41 +219,42 @@ def main():
     
     st.markdown("---")
     
-    # Criteria Score Distribution (full width)
-    st.subheader("Criteria Score Distribution")
-    rubrics = example.get('rubrics', [])
-    if rubrics:
-        df = pd.DataFrame([
-            {
-                'criterion': r.get('criterion', ''),
-                'points': r.get('points', 0),
-                'axis': extract_axis(r.get('tags', [])),
-            }
-            for r in rubrics
-        ])
-        fig = px.bar(
-            df,
-            x='criterion',
-            y='points',
-            color='axis',
-            title="Points by Criterion",
-            labels={'criterion': 'Criterion', 'points': 'Points'},
-            height=400
-        )
-        fig.update_layout(
-            legend=dict(
-                orientation='v',
-                yanchor='top',
-                y=1,
-                xanchor='left',
-                x=1.02,
-                font=dict(size=18),
-                bgcolor='rgba(0,0,0,0)'
+    # Criteria Score Distribution (full width) - only if enabled
+    if show_score_distribution:
+        st.subheader("Criteria Score Distribution")
+        rubrics = example.get('rubrics', [])
+        if rubrics:
+            df = pd.DataFrame([
+                {
+                    'criterion': r.get('criterion', ''),
+                    'points': r.get('points', 0),
+                    'axis': extract_axis(r.get('tags', [])),
+                }
+                for r in rubrics
+            ])
+            fig = px.bar(
+                df,
+                x='criterion',
+                y='points',
+                color='axis',
+                title="Points by Criterion",
+                labels={'criterion': 'Criterion', 'points': 'Points'},
+                height=400
             )
-        )
-        fig.update_xaxes(showticklabels=False, title=None)
-        st.plotly_chart(fig, use_container_width=True)
-    st.markdown("---")
+            fig.update_layout(
+                legend=dict(
+                    orientation='v',
+                    yanchor='top',
+                    y=1,
+                    xanchor='left',
+                    x=1.02,
+                    font=dict(size=18),
+                    bgcolor='rgba(0,0,0,0)'
+                )
+            )
+            fig.update_xaxes(showticklabels=False, title=None)
+            st.plotly_chart(fig, use_container_width=True)
+        st.markdown("---")
     
     # Rubric criteria (full width)
     display_rubric_criteria(example)
