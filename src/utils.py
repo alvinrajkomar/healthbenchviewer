@@ -1,57 +1,8 @@
-#!/usr/bin/env python3
-"""
-Data viewer for HealthBench evaluation data.
-Provides an interactive interface to view conversations and rubric criteria.
-"""
-
 import streamlit as st
 import json
 from pathlib import Path
 import pandas as pd
 from typing import Dict, List, Any
-import plotly.express as px
-
-# Custom CSS for better presentation
-st.set_page_config(
-    page_title="HealthBench Viewer",
-    page_icon="🏥",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Custom CSS
-st.markdown("""
-<style>
-    .main {
-        padding: 2rem;
-    }
-    .stMarkdown {
-        font-size: 1.1rem;
-    }
-    h1 {
-        color: #2563eb;
-        font-size: 2.5rem !important;
-        margin-bottom: 2rem !important;
-    }
-    h2 {
-        color: #1e40af;
-        font-size: 2rem !important;
-        margin-top: 2rem !important;
-    }
-    h3 {
-        color: #1e40af;
-        font-size: 1.5rem !important;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #2563eb;
-        color: white;
-    }
-    .stButton>button:hover {
-        background-color: #1e40af;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 def load_json_file(file_path: Path) -> Dict[str, Any]:
     """Load a single JSON file."""
@@ -69,12 +20,10 @@ def get_all_examples() -> List[Dict[str, Any]]:
 def display_conversation(example: Dict[str, Any]):
     """Display the conversation in a chat-like interface from the 'prompt' field."""
     st.subheader("Conversation")
-    
     conversation = example.get('prompt', [])
     if not conversation:
         st.warning("No conversation found in this example.")
         return
-
     chat_css = """
     <style>
     .chat-container { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -152,13 +101,10 @@ def get_points_badge_color(points: int) -> str:
     """Return a badge color (hex) for the points value, saturating at +/-10."""
     capped = max(min(points, 10), -10)
     if capped > 0:
-        # Muted green
         return '#4ade80'  # green-300
     elif capped < 0:
-        # Muted red
         return '#f87171'  # red-400
     else:
-        # Neutral gray
         return '#a1a1aa'  # zinc-400
 
 def axis_display_name(axis: str) -> str:
@@ -169,14 +115,10 @@ def axis_display_name(axis: str) -> str:
 def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show_details: bool = True):
     """Display and sort rubric criteria from the 'rubrics' field."""
     st.subheader("Rubric Criteria")
-    
-    # Extract criteria and scores
     rubrics = example.get('rubrics', [])
     if not rubrics:
         st.warning("No rubric criteria found in this example.")
         return
-    
-    # Convert to DataFrame for sorting
     df = pd.DataFrame([
         {
             'criterion': r.get('criterion', ''),
@@ -186,7 +128,6 @@ def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show
         }
         for r in rubrics
     ])
-    
     def colored_header(criterion, points):
         badge_color = get_points_badge_color(points)
         html = f'''
@@ -196,9 +137,7 @@ def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show
         </div>
         '''
         st.markdown(html, unsafe_allow_html=True)
-    
     if sort_by == "axis":
-        # Group by axis, sort within each axis by points descending
         for axis, group in df.groupby('axis'):
             st.markdown(f"### Axis: {axis if axis else 'Unspecified'}")
             group_sorted = group.sort_values(by="points", ascending=False)
@@ -209,9 +148,7 @@ def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show
                         st.markdown(f"**Axis:** {row['axis']}")
                         st.markdown(f"**Tags:** {', '.join(row['tags'])}")
     else:
-        # Sort the DataFrame
         df = df.sort_values(by=sort_by, ascending=False)
-        # Display each criterion
         for _, row in df.iterrows():
             colored_header(row['criterion'], row['points'])
             if show_details:
@@ -228,8 +165,6 @@ def calculate_points_metrics(rubrics: List[Dict[str, Any]]) -> Dict[str, Any]:
             'max_possible_penalty': 0,
             'by_axis': {}
         }
-    
-    # Convert to DataFrame for easier analysis
     df = pd.DataFrame([
         {
             'criterion': r.get('criterion', ''),
@@ -238,12 +173,9 @@ def calculate_points_metrics(rubrics: List[Dict[str, Any]]) -> Dict[str, Any]:
         }
         for r in rubrics
     ])
-    
     total_actual = df['points'].sum()
     max_possible_score = df[df['points'] > 0]['points'].sum()
     max_possible_penalty = df[df['points'] < 0]['points'].abs().sum()
-    
-    # Calculate by axis
     by_axis = {}
     for axis, group in df.groupby('axis'):
         axis_score = group[group['points'] > 0]['points'].sum()
@@ -252,7 +184,6 @@ def calculate_points_metrics(rubrics: List[Dict[str, Any]]) -> Dict[str, Any]:
             'max_score': axis_score,
             'max_penalty': axis_penalty
         }
-    
     return {
         'total_actual': total_actual,
         'max_possible_score': max_possible_score,
@@ -263,7 +194,6 @@ def calculate_points_metrics(rubrics: List[Dict[str, Any]]) -> Dict[str, Any]:
 def display_points_metrics(metrics: Dict[str, Any]):
     """Display points metrics in a visually appealing way."""
     st.subheader("Points Analysis")
-    
     col1, col2 = st.columns(2)
     with col1:
         st.metric(
@@ -275,8 +205,6 @@ def display_points_metrics(metrics: Dict[str, Any]):
             "Max Possible Penalty",
             f"{metrics['max_possible_penalty']}"
         )
-    
-    # Create a DataFrame for the axis breakdown
     axis_data = []
     for axis, data in metrics['by_axis'].items():
         axis_data.append({
@@ -285,10 +213,8 @@ def display_points_metrics(metrics: Dict[str, Any]):
             'Max Penalty': data['max_penalty']
         })
     df = pd.DataFrame(axis_data)
-    
     st.markdown("### Points by Category")
     if not df.empty:
-        # Use lighter color gradients and add padding/border radius for a modern look
         styler = (
             df.style
             .background_gradient(subset=["Max Score"], cmap="BuGn", vmin=0, vmax=max(df["Max Score"].max(), 1), gmap=None, axis=None)
@@ -303,112 +229,4 @@ def display_points_metrics(metrics: Dict[str, Any]):
         )
         st.write(styler)
     else:
-        st.dataframe(df, use_container_width=True)
-
-def load_markdown_content(page_name: str) -> str:
-    """Load markdown content from the content directory."""
-    content_path = Path(__file__).parent / 'content' / f'{page_name}.md'
-    if content_path.exists():
-        with open(content_path, 'r') as f:
-            return f.read()
-    return ""
-
-def display_page_content(page_name: str):
-    """Display the content for a specific page."""
-    content = load_markdown_content(page_name)
-    if content:
-        st.markdown(content)
-    else:
-        st.error(f"Content not found for {page_name}")
-
-def main():
-    PAGES = {
-        "Introduction": "intro",
-        "Example Generation": "example_generation",
-        "Rubric Generation": "rubric_generation",
-        "Metric Calculation": "metric_calculation",
-        "Data Explorer": "data_explorer"
-    }
-
-    st.sidebar.title("HealthBench Viewer")
-
-    # Use a selectbox for navigation
-    page = st.sidebar.selectbox(
-        "Navigation",
-        list(PAGES.keys()),
-        index=list(PAGES.keys()).index(st.session_state.get("page", "Introduction"))
-    )
-    st.session_state.page = page
-
-    # --- PAGE LOGIC ---
-    if page == "Introduction":
-        st.title("HealthBench Dataset")
-        display_page_content("intro")
-    elif page == "Example Generation":
-        st.title("Example Generation")
-        display_page_content("example_generation")
-    elif page == "Rubric Generation":
-        st.title("Rubric Generation")
-        display_page_content("rubric_generation")
-    elif page == "Metric Calculation":
-        st.title("Metric Calculation")
-        display_page_content("metric_calculation")
-    else:  # Data Explorer
-        st.title("Data Explorer")
-        
-        # Get all examples
-        examples = get_all_examples()
-        if not examples:
-            st.error("No examples found in the processed_data directory.")
-            return
-        
-        # Move all options to sidebar
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("Data Explorer Options")
-        
-        # Example selector in sidebar
-        example_names = [f"Example {i+1}" for i in range(len(examples))]
-        selected_example = st.sidebar.selectbox(
-            "Select an example:",
-            example_names,
-            help="Choose an example to view"
-        )
-        
-        # Display options in sidebar
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("Display Options")
-        
-        sort_by = st.sidebar.radio(
-            "Sort criteria by:",
-            ["axis", "points"],
-            help="Choose how to sort the rubric criteria"
-        )
-        
-        show_details = st.sidebar.checkbox(
-            "Show detailed criteria",
-            value=True,
-            help="Toggle the visibility of detailed criteria information"
-        )
-        
-        # Get the selected example
-        example_index = int(selected_example.split()[1]) - 1
-        example = examples[example_index]
-        
-        # Main content area
-        # Display conversation
-        display_conversation(example)
-        
-        # Display ideal completion
-        display_ideal_completion(example)
-        
-        # Display rubric criteria
-        st.markdown("---")
-        display_rubric_criteria(example, sort_by, show_details)
-        
-        # Display points metrics
-        st.markdown("---")
-        metrics = calculate_points_metrics(example.get('rubrics', []))
-        display_points_metrics(metrics)
-
-if __name__ == "__main__":
-    main() 
+        st.dataframe(df, use_container_width=True) 
