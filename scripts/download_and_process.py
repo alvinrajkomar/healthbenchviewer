@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
 Data download and processing script for HealthBench.
-This script downloads the raw data from the provided URL and processes it.
+This script downloads the raw data, processes it, and generates CSV files.
 """
 
 import requests
 from pathlib import Path
 import logging
-import subprocess
-import sys
+import json
+import pandas as pd
+from typing import Dict, List, Any
 import argparse
 from enum import Enum
+import sys
+
+# Add src to path for importing utils
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from src.utils import jsonl_to_dataframe
 
 # Set up logging
 logging.basicConfig(
@@ -48,37 +54,83 @@ def download_data(url: str, output_path: Path) -> None:
         logger.error(f"Error downloading data: {str(e)}")
         raise
 
+def process_and_save_data(jsonl_file: Path, output_dir: Path, base_filename: str, num_examples: int = None):
+    """Process the JSONL file and save both individual JSON files and CSV."""
+    # Load and process data
+    data = []
+    with open(jsonl_file, 'r') as f:
+        for i, line in enumerate(f):
+            if num_examples is not None and i >= num_examples:
+                break
+            if line.strip():
+                data.append(json.loads(line))
+    
+    # Save individual JSON files
+    for i, example in enumerate(data):
+        output_file = output_dir / f"{base_filename}_example_{i+1}.json"
+        with open(output_file, 'w') as f:
+            json.dump(example, f, indent=2)
+        logger.info(f"Saved example {i+1} to {output_file}")
+    
+    # Generate and save CSV
+    df = jsonl_to_dataframe(str(jsonl_file))
+    if num_examples is not None:
+        df = df.head(num_examples)
+    csv_file = output_dir / f"{base_filename}.csv"
+    df.to_csv(csv_file, index=False)
+    logger.info(f"Saved CSV file to {csv_file}")
+
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Download and process HealthBench datasets')
     parser.add_argument('--dataset', 
                       type=str,
-                      choices=[d.value for d in DatasetType],
-                      default=DatasetType.DEFAULT.value,
-                      help='Dataset to download (default: default)')
+                      choices=[d.value for d in DatasetType] + ['all'],
+                      default='all',
+                      help='Dataset to download (default: all)')
+    parser.add_argument('--num_examples', 
+                      type=int,
+                      default=None,
+                      help='Number of examples to process (default: all)')
     args = parser.parse_args()
 
-    # Convert string argument to enum
-    dataset_type = DatasetType(args.dataset)
-    
     # Define paths
     base_dir = Path(__file__).parent.parent
     raw_data_dir = base_dir / 'raw_data'
-    raw_data_dir.mkdir(exist_ok=True)
+    processed_data_dir = base_dir / 'processed_data'
     
-    # Get URL and set output filename
-    input_url = DATASET_URLS[dataset_type]
-    output_file = raw_data_dir / f"healthbench_{dataset_type.value}_data.jsonl"
+    # Determine which datasets to process
+    if args.dataset == 'all':
+        datasets_to_process = list(DatasetType)
+    else:
+        datasets_to_process = [DatasetType(args.dataset)]
     
-    # Download the data
-    download_data(input_url, output_file)
+    # Process each dataset
+    for dataset_type in datasets_to_process:
+        logger.info(f"\nProcessing {dataset_type.value} dataset...")
+        
+        # Get URL and set output filename
+        input_url = DATASET_URLS[dataset_type]
+        output_file = raw_data_dir / f"healthbench_{dataset_type.value}_data.jsonl"
+        
+        # Download the data
+        download_data(input_url, output_file)
+        
+        # Create dataset-specific output directory
+        output_dir = processed_data_dir / dataset_type.value
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Process and save the data
+        process_and_save_data(
+            output_file, 
+            output_dir, 
+            output_file.stem,
+            args.num_examples
+        )
+        
+        logger.info(f"Completed processing {dataset_type.value} dataset!")
     
-    # Run the processing script
-    logger.info("Running data processing script...")
-    process_script = base_dir / "scripts" / "process_data.py"
-    subprocess.run([sys.executable, str(process_script)], check=True)
-    
-    logger.info("Data download and processing completed successfully!")
+    logger.info("\nAll data download and processing completed successfully!")
 
 if __name__ == "__main__":
     main() 
