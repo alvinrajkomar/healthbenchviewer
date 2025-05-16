@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from pathlib import Path
 from utils import (
     get_all_examples,
     display_conversation,
@@ -12,10 +13,29 @@ from utils import (
 
 st.title("Data Explorer")
 
-# Get all examples
-examples = get_all_examples()
+# Dataset selection in sidebar
+st.sidebar.markdown("---")
+st.sidebar.subheader("Dataset Selection")
+dataset_type = st.sidebar.selectbox(
+    "Select Dataset",
+    ["default", "hard", "consensus"],
+    format_func=lambda x: x.capitalize(),
+    help="Choose which dataset to explore"
+)
+
+# Robust repo root detection
+repo_root = Path(__file__).resolve().parent.parent.parent
+data_dir = repo_root / 'processed_data' / dataset_type
+examples = get_all_examples(data_dir)
+
+# Debug info in sidebar
+st.sidebar.markdown(f"**Debug Info:**")
+st.sidebar.markdown(f"Path: `{data_dir}`")
+st.sidebar.markdown(f"Files found: {len(list(data_dir.glob('*_example_*.json')))}")
+st.sidebar.markdown(f"Examples loaded: {len(examples)}")
+
 if not examples:
-    st.error("No examples found in the processed_data directory.")
+    st.error(f"No examples found in the {dataset_type} dataset.")
 else:
     # Create DataFrame for initial view and theme selection
     df = create_examples_dataframe(examples)
@@ -98,7 +118,7 @@ else:
 
     # --- Examples Section ---
     st.markdown("---")
-    st.header("Examples in Selected Theme")
+    st.header(f"Examples in {dataset_type.capitalize()} Dataset")
 
     # Display options (keep in sidebar)
     st.sidebar.markdown("---")

@@ -9,9 +9,10 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
     with open(file_path, 'r') as f:
         return json.load(f)
 
-def get_all_examples() -> List[Dict[str, Any]]:
-    """Load all example JSON files from the processed_data directory."""
-    data_dir = Path(__file__).parent.parent / 'processed_data'
+def get_all_examples(data_dir: Path = None) -> List[Dict[str, Any]]:
+    """Load all example JSON files from the specified data directory or the default processed_data directory."""
+    if data_dir is None:
+        data_dir = Path(__file__).parent.parent / 'processed_data'
     examples = []
     for json_file in sorted(data_dir.glob('*_example_*.json')):
         examples.append(load_json_file(json_file))
@@ -229,4 +230,81 @@ def display_points_metrics(metrics: Dict[str, Any]):
         )
         st.write(styler)
     else:
-        st.dataframe(df, use_container_width=True) 
+        st.dataframe(df, use_container_width=True)
+
+def parse_tags(tags):
+    theme = None
+    physician_agreed_category = None
+    for tag in tags:
+        if tag.startswith("theme:"):
+            theme = tag.split("theme:")[1]
+        if tag.startswith("physician_agreed_category:"):
+            physician_agreed_category = tag.split("physician_agreed_category:")[1]
+    return theme, physician_agreed_category
+
+def format_conversation(prompt):
+    # prompt is a list of dicts with 'role' and 'content'
+    return " | ".join(f'{turn["role"].capitalize()}: "{turn["content"]}"' for turn in prompt)
+
+def jsonl_to_dataframe(jsonl_path, max_rows=None):
+    import pandas as pd
+    import json
+    rows = []
+    with open(jsonl_path, "r") as f:
+        for i, line in enumerate(f):
+            if max_rows and i >= max_rows:
+                break
+            data = json.loads(line)
+            prompt_id = data.get("prompt_id")
+            tags = data.get("example_tags", [])
+            theme, physician_agreed_category = parse_tags(tags)
+            example = format_conversation(data.get("prompt", []))
+            rows.append({
+                "prompt_id": prompt_id,
+                "theme": theme,
+                "physician_agreed_category": physician_agreed_category,
+                "example": example
+            })
+    return pd.DataFrame(rows)
+
+def create_examples_dataframe(examples: List[Dict[str, Any]]) -> pd.DataFrame:
+    """Create a DataFrame from the examples."""
+    rows = []
+    for i, example in enumerate(examples):
+        # Extract basic information
+        prompt_id = example.get('prompt_id', f'example_{i+1}')
+        tags = example.get('example_tags', [])
+        theme = next((tag[6:] for tag in tags if tag.startswith('theme:')), '')
+        physician_category = next((tag[len('physician_agreed_category:'):] for tag in tags if tag.startswith('physician_agreed_category:')), '')
+        
+        # Extract conversation
+        conversation_full = format_conversation(example.get('prompt', []))
+        conversation_preview = conversation_full[:500] + ("..." if len(conversation_full) > 500 else "")
+        
+        # Extract ideal completion with proper null checks
+        ideal_completions_data = example.get('ideal_completions_data')
+        ideal_completion_full = ''
+        if ideal_completions_data and isinstance(ideal_completions_data, dict):
+            ideal_completion_full = ideal_completions_data.get('ideal_completion', '')
+        ideal_completion_preview = ideal_completion_full[:500] + ("..." if len(ideal_completion_full) > 500 else "")
+        
+        # Extract rubric information
+        rubrics = example.get('rubrics', [])
+        total_points = sum(r.get('points', 0) for r in rubrics)
+        axes = [extract_axis(r.get('tags', [])) for r in rubrics]
+        unique_axes = list(set(axes))
+        
+        rows.append({
+            'ID': prompt_id,
+            'Theme': theme,
+            'Physician Category': physician_category,
+            'Conversation Preview': conversation_preview,
+            'Conversation Full': conversation_full,
+            'Ideal Completion Preview': ideal_completion_preview,
+            'Ideal Completion Full': ideal_completion_full,
+            'Total Points': total_points,
+            'Axes': ', '.join(unique_axes),
+            'Number of Criteria': len(rubrics)
+        })
+    
+    return pd.DataFrame(rows) 
