@@ -20,9 +20,17 @@ with open(jsonl_path, 'r') as f:
         for rubric in rubrics:
             criterion = rubric.get('criterion', '')
             points = rubric.get('points', None)
+            # Extract axis from rubric tags
+            axis = None
+            rubric_tags = rubric.get('tags', [])
+            for rtag in rubric_tags:
+                if rtag.startswith('axis:'):
+                    axis = rtag.split('axis:')[1]
+                    break
             rows.append({
                 'theme': theme,
                 'physician_category': physician_category,
+                'axis': axis,
                 'criterion': criterion,
                 'points': points
             })
@@ -33,8 +41,9 @@ print(df.head())
 # --- Descriptive statistics ---
 print('\nDescriptive statistics:')
 print('Number of rubric rows:', len(df))
-print('Number of unique (theme, physician_category, criterion, points) rows:', df.drop_duplicates().shape[0])
+print('Number of unique (theme, physician_category, criterion, points, axis) rows:', df.drop_duplicates().shape[0])
 print('Number of unique criteria:', df["criterion"].nunique())
+print('Number of unique axes:', df["axis"].nunique())
 print('Number of unique themes:', df["theme"].nunique())
 print('Number of unique physician categories:', df["physician_category"].nunique())
 print(df.describe(include='all'))
