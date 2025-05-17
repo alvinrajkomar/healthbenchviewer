@@ -135,3 +135,7 @@ dmypy.json
 # Project specific
 raw_data/
 processed_data/
+
+# Ignore all CSV files
+*.csv
+**/*.csv
