@@ -13,6 +13,42 @@ from utils import (
 
 st.title("Data Explorer")
 
+# --- Sticky horizontal navigation bar ---
+st.markdown("""
+<style>
+.sticky-nav {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background: #18181b;
+    padding: 0.7rem 0 0.7rem 0;
+    margin-bottom: 1.2rem;
+    border-bottom: 1px solid #333;
+    display: flex;
+    gap: 2.5rem;
+    justify-content: center;
+}
+.sticky-nav a {
+    color: #3b82f6;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 1.1rem;
+    transition: color 0.2s;
+}
+.sticky-nav a:hover {
+    color: #ef4444;
+    text-decoration: underline;
+}
+</style>
+<div class="sticky-nav">
+  <a href="#select-theme">Select Theme</a>
+  <a href="#examples">Examples</a>
+  <a href="#conversation">Conversation</a>
+  <a href="#rubric-criteria">Rubric Criteria</a>
+  <a href="#points-analysis">Points Analysis</a>
+</div>
+""", unsafe_allow_html=True)
+
 # Dataset selection in sidebar
 st.sidebar.markdown("---")
 st.sidebar.subheader("Dataset Selection")
@@ -28,12 +64,6 @@ repo_root = Path(__file__).resolve().parent.parent.parent
 data_dir = repo_root / 'processed_data' / dataset_type
 examples = get_all_examples(data_dir)
 
-# Debug info in sidebar
-st.sidebar.markdown(f"**Debug Info:**")
-st.sidebar.markdown(f"Path: `{data_dir}`")
-st.sidebar.markdown(f"Files found: {len(list(data_dir.glob('*_example_*.json')))}")
-st.sidebar.markdown(f"Examples loaded: {len(examples)}")
-
 if not examples:
     st.error(f"No examples found in the {dataset_type} dataset.")
 else:
@@ -43,7 +73,8 @@ else:
     # Create a mapping of IDs to examples for quick lookup
     example_map = {example.get('prompt_id', f'example_{i+1}'): example for i, example in enumerate(examples)}
     
-    # --- Theme Selection Section ---
+    # --- Anchor: Select Theme ---
+    st.markdown('<a name="select-theme"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.header("Select Theme")
 
@@ -116,7 +147,8 @@ else:
                         </style>
                     """, unsafe_allow_html=True)
 
-    # --- Examples Section ---
+    # --- Anchor: Examples ---
+    st.markdown('<a name="examples"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.header(f"Examples in {dataset_type.capitalize()} Dataset")
 
@@ -157,7 +189,8 @@ else:
         current_example = example_map.get(current_example_id)
         
         if current_example:
-            # --- Conversation Section ---
+            # --- Anchor: Conversation ---
+            st.markdown('<a name="conversation"></a>', unsafe_allow_html=True)
             st.markdown("---")
             # Show theme above conversation
             theme = current_example.get('example_tags', [])
@@ -167,10 +200,12 @@ else:
             display_conversation(current_example)
             if show_ideal_completion:
                 display_ideal_completion(current_example)
-            # --- Rubric Criteria Section ---
+            # --- Anchor: Rubric Criteria ---
+            st.markdown('<a name="rubric-criteria"></a>', unsafe_allow_html=True)
             st.markdown("---")
             display_rubric_criteria(current_example, sort_by, show_details)
-            # --- Points Metrics Section ---
+            # --- Anchor: Points Analysis ---
+            st.markdown('<a name="points-analysis"></a>', unsafe_allow_html=True)
             st.markdown("---")
             metrics = calculate_points_metrics(current_example.get('rubrics', []))
             display_points_metrics(metrics)
