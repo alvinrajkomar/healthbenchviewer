@@ -64,6 +64,22 @@ Available datasets:
 - `consensus`: The consensus version of the HealthBench dataset
 - `all`: Download and process all datasets
 
+## Extracting Unique Consensus Criteria
+
+To extract all unique rubric criteria (with theme and physician category) from the consensus dataset, use the provided script:
+
+```bash
+python notebooks/extract_consensus_criteria.py
+```
+
+This script will:
+- Load the consensus JSONL file from `raw_data/`
+- Extract all rubric criteria and relevant metadata (theme, physician category, criterion, points)
+- Save only the unique, grouped criteria as `notebooks/consensus_criteria_unique.csv`
+- Print descriptive statistics and show a sample in the terminal
+
+The resulting CSV will be grouped by theme and physician category for easy analysis.
+
 ## Launching the Data Viewer
 
 To start the Streamlit data viewer:
