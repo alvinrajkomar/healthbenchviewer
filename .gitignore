@@ -135,6 +135,7 @@ dmypy.json
 # Project specific
 raw_data/
 processed_data/
+outputs/
 
 # Ignore all CSV files
 *.csv
