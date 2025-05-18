@@ -1,5 +1,5 @@
 # HealthBench Comparative Dataset Analysis
-Generated on: 2025-05-18 13:35:14
+Generated on: 2025-05-18 13:56:59
 
 ## Dataset Overview Comparison
 | Metric | default | consensus | hard |

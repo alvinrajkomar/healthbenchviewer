@@ -85,7 +85,8 @@ Path: {dataset_path}
    - {'Natural' if df["max_points"].nunique() > 10 else 'Artificial'} distribution of scores
    - {'Varied' if df["rubric_count"].nunique() > 5 else 'Clustered'} distribution of rubrics
 """
-    analysis_path = Path('notebooks') / output_name
+    analysis_path = Path('outputs/analysis') / output_name
+    analysis_path.parent.mkdir(parents=True, exist_ok=True)
     with open(analysis_path, 'w') as f:
         f.write(markdown_template)
     print(f"Analysis for {dataset_type} saved to {output_name}")
@@ -146,7 +147,8 @@ Generated on: {timestamp}
    - {' | '.join([f"{dataset_types[i]}: {dfs[i]['max_points'].mean():.1f} mean points, {dfs[i]['max_points'].std():.1f} std dev" for i in range(len(dfs))])}
    - {' | '.join([f"{dataset_types[i]}: {dfs[i]['max_points'].max() - dfs[i]['max_points'].min()} point range" for i in range(len(dfs))])}
 """
-    analysis_path = Path('notebooks') / output_name
+    analysis_path = Path('outputs/analysis') / output_name
+    analysis_path.parent.mkdir(parents=True, exist_ok=True)
     with open(analysis_path, 'w') as f:
         f.write(markdown_template)
     print(f"Comparative analysis saved to {output_name}")

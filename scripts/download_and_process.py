@@ -13,6 +13,7 @@ from typing import Dict, List, Any
 import argparse
 from enum import Enum
 import sys
+import subprocess
 
 # Add src to path for importing utils
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -80,6 +81,28 @@ def process_and_save_data(jsonl_file: Path, output_dir: Path, base_filename: str
     df.to_csv(csv_file, index=False)
     logger.info(f"Saved CSV file to {csv_file}")
 
+def run_analysis_scripts():
+    """Run the analysis scripts to generate markdown and CSV outputs."""
+    analysis_scripts_dir = Path(__file__).resolve().parent / 'analysis'
+    output_dir = Path(__file__).resolve().parent.parent / 'outputs' / 'analysis'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Run extract_key_examples.py
+    extract_script = analysis_scripts_dir / 'extract_key_examples.py'
+    if extract_script.exists():
+        logger.info("Running extract_key_examples.py...")
+        subprocess.run([sys.executable, str(extract_script)], check=True)
+    else:
+        logger.warning(f"Analysis script {extract_script} not found.")
+    
+    # Run create_penalty_dataset.py
+    penalty_script = analysis_scripts_dir / 'create_penalty_dataset.py'
+    if penalty_script.exists():
+        logger.info("Running create_penalty_dataset.py...")
+        subprocess.run([sys.executable, str(penalty_script)], check=True)
+    else:
+        logger.warning(f"Analysis script {penalty_script} not found.")
+
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Download and process HealthBench datasets')
@@ -113,8 +136,12 @@ def main():
         input_url = DATASET_URLS[dataset_type]
         output_file = raw_data_dir / f"healthbench_{dataset_type.value}_data.jsonl"
         
-        # Download the data
-        download_data(input_url, output_file)
+        # Check if the raw dataset already exists
+        if output_file.exists():
+            logger.info(f"Raw dataset {output_file} already exists. Skipping download.")
+        else:
+            # Download the data
+            download_data(input_url, output_file)
         
         # Create dataset-specific output directory
         output_dir = processed_data_dir / dataset_type.value
@@ -129,6 +156,9 @@ def main():
         )
         
         logger.info(f"Completed processing {dataset_type.value} dataset!")
+    
+    # Run analysis scripts after processing
+    run_analysis_scripts()
     
     logger.info("\nAll data download and processing completed successfully!")
 
