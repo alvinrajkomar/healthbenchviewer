@@ -113,7 +113,7 @@ def axis_display_name(axis: str) -> str:
         return 'Unspecified'
     return axis.replace('_', ' ').capitalize()
 
-def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show_details: bool = True):
+def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show_details: bool = True, show_positive: bool = True, show_negative: bool = True):
     """Display and sort rubric criteria from the 'rubrics' field."""
     st.subheader("Rubric Criteria")
     rubrics = example.get('rubrics', [])
@@ -129,6 +129,17 @@ def display_rubric_criteria(example: Dict[str, Any], sort_by: str = "axis", show
         }
         for r in rubrics
     ])
+    
+    # Filter rubrics based on show_positive and show_negative
+    if not show_positive:
+        df = df[df['points'] < 0]
+    if not show_negative:
+        df = df[df['points'] >= 0]
+    
+    if df.empty:
+        st.info("No rubrics to display with the current filter settings.")
+        return
+        
     def colored_header(criterion, points):
         badge_color = get_points_badge_color(points)
         html = f'''

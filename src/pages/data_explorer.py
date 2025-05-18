@@ -59,6 +59,14 @@ dataset_type = st.sidebar.selectbox(
     help="Choose which dataset to explore"
 )
 
+# Add prompt_id search (moved here after df is defined)
+st.sidebar.markdown("---")
+st.sidebar.subheader("Search by ID")
+search_id = st.sidebar.text_input(
+    "Enter prompt ID",
+    help="Enter a prompt ID to find a specific example"
+)
+
 # Robust repo root detection
 repo_root = Path(__file__).resolve().parent.parent.parent
 data_dir = repo_root / 'processed_data' / dataset_type
@@ -70,6 +78,16 @@ else:
     # Create DataFrame for initial view and theme selection
     df = create_examples_dataframe(examples)
     
+    # Add prompt_id search (moved here after df is defined)
+    if search_id:
+        matching_examples = df[df['ID'] == search_id]
+        if not matching_examples.empty:
+            st.session_state.current_examples = matching_examples.reset_index(drop=True)
+            st.session_state.current_index = 0
+            st.sidebar.success(f"Found example with ID: {search_id}")
+        else:
+            st.sidebar.error(f"No example found with ID: {search_id}")
+
     # Create a mapping of IDs to examples for quick lookup
     example_map = {example.get('prompt_id', f'example_{i+1}'): example for i, example in enumerate(examples)}
     
@@ -174,6 +192,20 @@ else:
         value=True,
         help="Toggle the visibility of the ideal completion"
     )
+    
+    # Add rubric type toggles
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Rubric Filters")
+    show_positive = st.sidebar.checkbox(
+        "Show positive rubrics",
+        value=True,
+        help="Toggle the visibility of rubrics with positive points"
+    )
+    show_negative = st.sidebar.checkbox(
+        "Show negative rubrics",
+        value=True,
+        help="Toggle the visibility of rubrics with negative points"
+    )
 
     # Main content area
     if len(st.session_state.current_examples) > 0:
@@ -196,18 +228,26 @@ else:
             # --- Anchor: Conversation ---
             st.markdown('<a name="conversation"></a>', unsafe_allow_html=True)
             st.markdown("---")
-            # Show theme above conversation
+            # Show prompt ID and theme above conversation
+            prompt_id = current_example.get('prompt_id', '')
             theme = current_example.get('example_tags', [])
             theme_str = next((tag[6:] for tag in theme if tag.startswith('theme:')), None)
-            if theme_str:
-                st.markdown(f"<div style='font-size:1.1rem;font-weight:600;color:#2563eb;margin-bottom:0.3rem;'>Theme: {theme_str.replace('_', ' ').title()}</div>", unsafe_allow_html=True)
+            
+            # Display theme and prompt ID (with native copy button)
+            st.markdown(f"""
+                <div style='display:flex;align-items:center;gap:1rem;margin-bottom:0.3rem;'>
+                    <div style='font-size:1.1rem;font-weight:600;color:#2563eb;'>Theme: {theme_str.replace('_', ' ').title() if theme_str else 'Unknown'}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            st.code(prompt_id, language=None)
+            
             display_conversation(current_example)
             if show_ideal_completion:
                 display_ideal_completion(current_example)
             # --- Anchor: Rubric Criteria ---
             st.markdown('<a name="rubric-criteria"></a>', unsafe_allow_html=True)
             st.markdown("---")
-            display_rubric_criteria(current_example, sort_by, show_details)
+            display_rubric_criteria(current_example, sort_by, show_details, show_positive, show_negative)
             # --- Anchor: Points Analysis ---
             st.markdown('<a name="points-analysis"></a>', unsafe_allow_html=True)
             st.markdown("---")
