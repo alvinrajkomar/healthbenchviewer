@@ -61,10 +61,28 @@ else:
     st.info("No conversation found in this example.")
 
 # Show rubric criteria (negative rubrics)
-negative_rubrics = current_example.get('negative_rubrics_with_points', '')
-if negative_rubrics:
+# Try to use display_rubric_criteria for a consistent look
+rubrics = []
+if 'negative_rubrics' in current_example and isinstance(current_example['negative_rubrics'], list):
+    # If negative_rubrics is already a list of dicts
+    rubrics = current_example['negative_rubrics']
+elif 'negative_rubrics_with_points' in current_example and current_example['negative_rubrics_with_points']:
+    # Try to parse the string into rubric dicts (assumes format: criterion (points) | ...)
+    import re
+    parts = [p.strip() for p in current_example['negative_rubrics_with_points'].split('|')]
+    for part in parts:
+        m = re.match(r"(.+?)\s*\(([-\d]+)\)$", part)
+        if m:
+            criterion = m.group(1).strip()
+            points = int(m.group(2))
+            rubrics.append({'criterion': criterion, 'points': points, 'tags': []})
+        elif part:
+            rubrics.append({'criterion': part, 'points': -1, 'tags': []})
+
+if rubrics:
+    current_example['rubrics'] = rubrics
     st.subheader("Negative Rubric Criteria")
-    st.markdown(f"<div style='background:#18181b;padding:0.7rem 1.2rem;border-radius:0.7rem;margin-bottom:0.2rem;color:#ef4444;font-weight:600;'>{negative_rubrics}</div>", unsafe_allow_html=True)
+    display_rubric_criteria(current_example, sort_by='axis', show_details=True, show_positive=False, show_negative=True)
 else:
     st.info("No negative rubric criteria found in this example.")
 
