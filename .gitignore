@@ -140,3 +140,6 @@ outputs/
 # Ignore all CSV files
 *.csv
 **/*.csv
+
+# New code block
+notebooks/printed_examples/
